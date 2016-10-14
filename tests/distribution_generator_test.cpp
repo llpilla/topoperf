@@ -141,7 +141,6 @@ void test_MidPoint (  ) {
 
 }
 
-
 void test_UniformlyRandom (  ) {
     DistributionGenerator *generator;
 
@@ -163,6 +162,27 @@ void test_UniformlyRandom (  ) {
     isEqual(i, 100);
 }
 
+void test_ExponentiallyRandom (  ) {
+DistributionGenerator *generator;
+
+    DESCRIBE("Exponentially Random");
+
+    WHEN("I create a Random Exponential Distribution from 10 to 1000 with 100 points");
+    IFTHEN("I generate all points", "they should all be between 10 and 1000");
+    generator = DistributionGenerator::make_generator(10, 1000, EXPONENTIALLY_RANDOM, 100);
+    bool inside_interval = true;
+    uint_fast64_t point = 0ul;
+    int i = 0;
+    while ( (! generator->is_done()) && inside_interval ) {
+        point = generator->next();
+        ++i;
+        inside_interval = ( point >= 10ul ) && ( point <= 1000ul );
+    }
+    isTrue(inside_interval);
+    IFTHEN("I generate all points", "it should stop after 100 requests");
+    isEqual(i, 100);
+
+}
 
 int main () {
     test_AveragePoint();
@@ -170,4 +190,5 @@ int main () {
     test_ExponentiallySpaced();
     test_MidPoint();
     test_UniformlyRandom();
+    test_ExponentiallyRandom();
 }

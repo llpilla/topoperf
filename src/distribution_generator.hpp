@@ -15,11 +15,17 @@ enum Generators {
     UNIFORMLY_SPACED,
     EXPONENTIALLY_SPACED,
     MID_POINT,
-    UNIFORMLY_RANDOM
+    UNIFORMLY_RANDOM,
+    EXPONENTIALLY_RANDOM
 };
 /****************************************************************************/
 // This class serves as a base and as a factory for specific implementations
 // of distributions
+// Example of use:
+//   //Create a uniformly spaced generator for 20 points between 10 and 100
+//   DistributionGenerator *generator = DistributionGenerator::make_generator(10, 100, UNIFORMLY_SPACED, 20);
+//   //Print all points
+//   while ( ! generator->is_done() ) std::cout << generator->next() << std::endl;
 class DistributionGenerator {
     protected:
         uint_fast64_t min_;          //Lower limit (included)
@@ -114,7 +120,7 @@ class MidPoint : public AveragePoint {
 class UniformlyRandom : public DistributionGenerator {
     private:
         //Uniform distribution to generate random numbers
-        std::uniform_int_distribution<uint_fast64_t> *randomize;
+        std::uniform_int_distribution<uint_fast64_t> randomize;
         //Generator of random numbers
         std::random_device device;
     public:
@@ -126,17 +132,40 @@ class UniformlyRandom : public DistributionGenerator {
             min_ = min;
             max_ = max;
             count_limit_ = count_limit;
-            randomize = new std::uniform_int_distribution<uint_fast64_t>(min, max);
+            randomize = std::uniform_int_distribution<uint_fast64_t>(min, max);
         }
         //Provides the point splitting the next intervals in an exponential scale
         uint_fast64_t next (  );
-        //Destructor needs to free random number generators
-        ~UniformlyRandom (  ) {
-            delete randomize;
-        }
 };
 
+// Distribution Generator that generates count_limit_ random points
+// It follows the same spacing idea of ExponentiallySpaced
+// Example: ExponentiallyRandom(2,8,4) gives 4 numbers between 2 and 8 included
+class ExponentiallyRandom : public DistributionGenerator {
+    private:
+        //Uniform distribution to generate random numbers
+        std::uniform_real_distribution<double> randomize;
+        //Generator of random numbers
+        std::random_device device;
+        //Min and Max in log scale
+        double log_min_, log_max_;
+    public:
+        //Constructor with lower and upper limit and the number of random
+        //points to generate
+        //Limits are taken care by the factory
+        ExponentiallyRandom (uint_fast64_t min, uint_fast64_t max,
+                uint_fast64_t count_limit) {
+            min_ = min;
+            max_ = max;
+            log_min_ = log (min);
+            log_max_ = log (max);
+            count_limit_ = count_limit;
+            randomize = std::uniform_real_distribution<double>(log_min_, log_max_);
+        }
+        //Provides the point splitting the next intervals in an exponential scale
+        uint_fast64_t next (  );
 
+};
 /****************************************************************************/
 // Method implementations
 
@@ -165,8 +194,10 @@ DistributionGenerator *DistributionGenerator::make_generator (
         return new ExponentiallySpaced(min, max, count_limit);
     else if ( generator_kind == MID_POINT )
         return new MidPoint(min, max);
-    else
+    else if ( generator_kind == UNIFORMLY_RANDOM )
         return new UniformlyRandom(min, max, count_limit);
+    else
+        return new ExponentiallyRandom(min, max, count_limit);
 }
 
 
@@ -214,6 +245,14 @@ uint_fast64_t MidPoint::next (  ) {
 // Gets a number in a uniform_int_distribution
 uint_fast64_t UniformlyRandom::next (  ) {
     ++count_;
-    return (*randomize)(device);
+    return randomize ( device );
+}
+
+// ExponentiallyRandom generation operation
+// Gets a number in a uniform_real_distribution and converts it to a point in
+// the original limits
+uint_fast64_t ExponentiallyRandom::next (  ) {
+    ++count_;
+    return exp ( randomize ( device ) );
 }
 
